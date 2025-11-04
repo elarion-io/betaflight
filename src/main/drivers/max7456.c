@@ -364,6 +364,9 @@ max7456InitStatus_e max7456Init(const max7456Config_t *max7456Config, const vcdP
     IOConfigGPIO(dev->busType_u.spi.csnPin, SPI_IO_CS_CFG);
     IOHi(dev->busType_u.spi.csnPin);
 
+    // Set the clock phase/polarity
+    spiSetClkPhasePolarity(dev, true);
+
     // Detect MAX7456 existence and device type. Do this at half the speed for safety.
 
     // Detect MAX7456 and compatible device by reading OSDM (OSD Insertion MUX) register.
