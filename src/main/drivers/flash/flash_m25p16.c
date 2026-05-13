@@ -142,6 +142,9 @@ struct {
     // XMC XM25QH256B
     // Datasheet: https://www.xmcwh.com/uploads/499/XM25QU256B.pdf
     { 0x206019, 166, 80, 8192, 16 },
+    // GD25Q128
+    // Datasheet: https://download.gigadevice.com/Datasheet/DS-00480-GD25Q128E-Rev1.4.pdf
+    { 0xC84018, 104, 80, 4096, 16 },
     // End of list
     { 0x000000, 0, 0, 0, 0 }
 };
