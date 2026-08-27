@@ -72,11 +72,6 @@ jobs:
           files: |
             obj/*.hex
             obj/*.bin
+          # Attach the built files with GitHub's generated changelog only -
+          # no hand-written release notes body.
           generate_release_notes: true
-          body: |
-            Firmware for Elarion flight controllers.
-
-            Flash the `.hex` with Betaflight Configurator or app.betaflight.com,
-            or the `.bin` at address `0x08000000` with STM32CubeProgrammer.
-            See [ELARION.md](ELARION.md) for target selection and full
-            instructions.
