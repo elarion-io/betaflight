@@ -2,16 +2,18 @@
 #
 # Push a tag to cut a release:
 #
-#     git tag elarion-v1.0.0 && git push origin elarion-v1.0.0
+#     git tag 2025.12.2a && git push elarion 2025.12.2a
 #
-# Or run manually from the Actions tab to get the images as workflow artifacts
-# without publishing a release.
+# Betaflight-style versions (2025.12.2a) and elarion-v* tags both trigger a
+# release. Or run manually from the Actions tab to get the images as workflow
+# artifacts without publishing a release.
 
 name: Elarion Release
 
 on:
   push:
     tags:
+      - '20[0-9][0-9].*'
       - 'elarion-v*'
   workflow_dispatch:
 
