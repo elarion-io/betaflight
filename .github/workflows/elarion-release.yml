@@ -1,0 +1,80 @@
+# Builds and publishes firmware for Elarion flight controllers.
+#
+# Push a tag to cut a release:
+#
+#     git tag elarion-v1.0.0 && git push origin elarion-v1.0.0
+#
+# Or run manually from the Actions tab to get the images as workflow artifacts
+# without publishing a release.
+
+name: Elarion Release
+
+on:
+  push:
+    tags:
+      - 'elarion-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Elarion firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          # The Elarion targets build from elarion/configs, so neither the
+          # upstream config repo nor pico-sdk is needed.
+          submodules: false
+
+      - name: Cache build toolchain
+        uses: actions/cache@v4
+        id: cache-toolchain
+        with:
+          path: tools
+          key: ${{ runner.os }}-${{ hashFiles('mk/tools.mk') }}
+
+      - name: Download and install toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: make arm_sdk_install
+
+      - name: Build firmware
+        run: |
+          set -euo pipefail
+          for config in ELARIONH743 ELARIONH743SD ELARIONF405; do
+            echo "::group::${config}"
+            make "${config}" EXTRA_FLAGS=-Werror -j4
+            make CONFIG="${config}" EXTRA_FLAGS=-Werror binary
+            echo "::endgroup::"
+          done
+
+      - name: List artifacts
+        run: ls -l obj/*.hex obj/*.bin
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: elarion-firmware
+          path: |
+            obj/*.hex
+            obj/*.bin
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            obj/*.hex
+            obj/*.bin
+          generate_release_notes: true
+          body: |
+            Firmware for Elarion flight controllers.
+
+            Flash the `.hex` with Betaflight Configurator or app.betaflight.com,
+            or the `.bin` at address `0x08000000` with STM32CubeProgrammer.
+            See [ELARION.md](ELARION.md) for target selection and full
+            instructions.
