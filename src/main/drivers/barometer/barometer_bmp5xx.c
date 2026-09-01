@@ -107,6 +107,11 @@
 #define BMP5XX_MODE_FORCED          (0x02)  // single shot, returns to standby
 #define BMP5XX_MODE_NON_STOP        (0x03)
 
+// Deep standby is entered from standby unless explicitly disabled, and while in deep
+// standby the sensor ignores configuration writes, so this bit must be set whenever
+// ODR_CONFIG is written (matches set_power_mode() in Bosch's BMP5-Sensor-API).
+#define BMP5XX_DEEP_STANDBY_DISABLE (0x01 << 7)
+
 // ODR_CONFIG register bitfields
 #define BMP5XX_ODR_STANDBY          (0x00)  // Standby mode
 #define BMP5XX_ODR_240_HZ           (0x00 << 2)
@@ -142,30 +147,31 @@
 #define BMP5XX_ODR_0_25_HZ          (0x1E << 2)
 #define BMP5XX_ODR_0_125_HZ         (0x1F << 2)
 
-// OSR_CONFIG register bitfields
-#define BMP5XX_OSR_PRESS_1X         (0x00)
-#define BMP5XX_OSR_PRESS_2X         (0x01)
-#define BMP5XX_OSR_PRESS_4X         (0x02)
-#define BMP5XX_OSR_PRESS_8X         (0x03)
-#define BMP5XX_OSR_PRESS_16X        (0x04)
-#define BMP5XX_OSR_PRESS_32X        (0x05)
-#define BMP5XX_OSR_PRESS_64X        (0x06)
-#define BMP5XX_OSR_PRESS_128X       (0x07)
+// OSR_CONFIG register bitfields: [2:0] osr_t, [5:3] osr_p, [6] press_en
+#define BMP5XX_OSR_PRESS_1X         (0x00 << 3)
+#define BMP5XX_OSR_PRESS_2X         (0x01 << 3)
+#define BMP5XX_OSR_PRESS_4X         (0x02 << 3)
+#define BMP5XX_OSR_PRESS_8X         (0x03 << 3)
+#define BMP5XX_OSR_PRESS_16X        (0x04 << 3)
+#define BMP5XX_OSR_PRESS_32X        (0x05 << 3)
+#define BMP5XX_OSR_PRESS_64X        (0x06 << 3)
+#define BMP5XX_OSR_PRESS_128X       (0x07 << 3)
 
-#define BMP5XX_OSR_TEMP_1X          (0x00 << 3)
-#define BMP5XX_OSR_TEMP_2X          (0x01 << 3)
-#define BMP5XX_OSR_TEMP_4X          (0x02 << 3)
-#define BMP5XX_OSR_TEMP_8X          (0x03 << 3)
-#define BMP5XX_OSR_TEMP_16X         (0x04 << 3)
-#define BMP5XX_OSR_TEMP_32X         (0x05 << 3)
-#define BMP5XX_OSR_TEMP_64X         (0x06 << 3)
-#define BMP5XX_OSR_TEMP_128X        (0x07 << 3)
+#define BMP5XX_OSR_TEMP_1X          (0x00)
+#define BMP5XX_OSR_TEMP_2X          (0x01)
+#define BMP5XX_OSR_TEMP_4X          (0x02)
+#define BMP5XX_OSR_TEMP_8X          (0x03)
+#define BMP5XX_OSR_TEMP_16X         (0x04)
+#define BMP5XX_OSR_TEMP_32X         (0x05)
+#define BMP5XX_OSR_TEMP_64X         (0x06)
+#define BMP5XX_OSR_TEMP_128X        (0x07)
 
 #define BMP5XX_OSR_PRESS_EN         (0x01 << 6)
 
 // DSP_CONFIG register bitfields
 #define BMP5XX_DSP_COMP_PRESS_TEMP  (0x03)  // Enable pressure and temperature compensation
-#define BMP5XX_DSP_SHDW_SEL_IIR     (0x01 << 3)  // IIR output to shadow registers
+#define BMP5XX_DSP_SHDW_SEL_IIR_T   (0x01 << 3)  // IIR filtered temperature into TEMP_DATA
+#define BMP5XX_DSP_SHDW_SEL_IIR_P   (0x01 << 5)  // IIR filtered pressure into PRESS_DATA
 
 // DSP_IIR register bitfields (IIR filter coefficient selection)
 // Coefficients: 0=bypass, 1=1, 2=3, 3=7, 4=15, 5=31, 6=63, 7=127
@@ -178,9 +184,9 @@
 #define BMP5XX_IIR_COEF_63          (0x06)
 #define BMP5XX_IIR_COEF_127         (0x07)
 
-// IIR coefficient for pressure (bits 2:0) and temperature (bits 5:3)
-#define BMP5XX_IIR_PRESS(x)         ((x) & 0x07)
-#define BMP5XX_IIR_TEMP(x)          (((x) & 0x07) << 3)
+// DSP_IIR register: [2:0] set_iir_t, [5:3] set_iir_p
+#define BMP5XX_IIR_TEMP(x)          ((x) & 0x07)
+#define BMP5XX_IIR_PRESS(x)         (((x) & 0x07) << 3)
 
 // INT_CONFIG register bitfields
 #define BMP5XX_INT_MODE_PULSED      (0x00)
@@ -208,15 +214,19 @@
 #define BMP5XX_INT_STATUS_OOR       (0x01 << 3)
 #define BMP5XX_INT_STATUS_POR       (0x01 << 4)
 
-// Oversampling settings for measurement
-// Pressure: 128X = maximum oversampling, lowest noise
-// Temperature: 4X = balanced (temperature changes slowly)
-// This combination gives ~10Hz update rate
-#define BMP5XX_PRESSURE_OSR         BMP5XX_OSR_PRESS_128X
+// Oversampling settings for measurement.
+// 64X pressure / 4X temperature is the highest combination that still sustains the
+// 50Hz ODR set below; asking for more pressure oversampling makes the sensor silently
+// reduce the effective OSR because the conversion no longer fits inside the ODR
+// period (reported by the OSR_EFF register).
+#define BMP5XX_PRESSURE_OSR         BMP5XX_OSR_PRESS_64X
 #define BMP5XX_TEMPERATURE_OSR      BMP5XX_OSR_TEMP_4X
 
 // Data frame size: temperature (3 bytes) + pressure (3 bytes)
 #define BMP5XX_DATA_FRAME_SIZE      6
+
+// The sensor returns 0x7F in every data byte while a value is not yet available
+#define BMP5XX_DATA_NOT_READY_BYTE  (0x7F)
 
 // Chip ID
 // Uncompensated pressure and temperature (raw 24-bit values)
@@ -243,22 +253,12 @@ static void bmp5xxCalculate(int32_t *pressure, int32_t *temperature);
  * @param data Buffer to store read data
  * @param length Number of bytes to read
  * @return true on success, false on failure
- * @note For SPI, first byte is dummy and is discarded
+ * @note BMP5xx returns no dummy byte on SPI reads - and the bus layer already sets
+ *       the read bit - so this is a straight pass-through on both bus types.
  */
 static bool bmp5xxReadRegisterBuffer(const extDevice_t *dev, uint8_t reg, uint8_t *data, uint8_t length)
 {
-    if (dev->bus->busType == BUS_TYPE_SPI) {
-        // For SPI: first byte is dummy on BMP5xx read
-        // Max read size: BMP5XX_DATA_FRAME_SIZE (6) + 1 dummy = 7 bytes
-        uint8_t buf[BMP5XX_DATA_FRAME_SIZE + 1];
-        bool ret = busReadRegisterBuffer(dev, reg, buf, length + 1);
-        if (ret) {
-            memcpy(data, buf + 1, length);
-        }
-        return ret;
-    } else {
-        return busReadRegisterBuffer(dev, reg, data, length);
-    }
+    return busReadRegisterBuffer(dev, reg, data, length);
 }
 
 static void bmp5xx_extiHandler(extiCallbackRec_t *cb)
@@ -271,7 +271,7 @@ static void bmp5xx_extiHandler(extiCallbackRec_t *cb)
 
 static void bmp5xxBusInit(const extDevice_t *dev)
 {
-#ifdef USE_BARO_SPI_BMP5XX
+#if defined(USE_BARO_SPI_BMP580) || defined(USE_BARO_SPI_BMP581)
     if (dev->bus->busType == BUS_TYPE_SPI) {
         IOHi(dev->busType_u.spi.csnPin);
         IOInit(dev->busType_u.spi.csnPin, OWNER_BARO_CS, 0);
@@ -285,7 +285,7 @@ static void bmp5xxBusInit(const extDevice_t *dev)
 
 static void bmp5xxBusDeinit(const extDevice_t *dev)
 {
-#ifdef USE_BARO_SPI_BMP5XX
+#if defined(USE_BARO_SPI_BMP580) || defined(USE_BARO_SPI_BMP581)
     if (dev->bus->busType == BUS_TYPE_SPI) {
         ioPreinitByIO(dev->busType_u.spi.csnPin, IOCFG_IPU, PREINIT_PIN_STATE_HIGH);
     }
@@ -341,8 +341,9 @@ bool bmp5xxDetect(const bmp5xxConfig_t *config, baroDev_t *baro, uint8_t *detect
     }
 
     if (dev->bus->busType == BUS_TYPE_SPI) {
-        // For SPI, first byte is dummy on read
-        sensor_data = sensor_data_buffer + 1;
+        // The part needs one throw-away register read after power up before it
+        // answers correctly on SPI.
+        bmp5xxReadRegisterBuffer(dev, BMP5XX_REG_CHIP_ID, &chipId, 1);
     }
 
     // Read chip ID
@@ -384,14 +385,20 @@ bool bmp5xxDetect(const bmp5xxConfig_t *config, baroDev_t *baro, uint8_t *detect
         busWriteRegister(dev, BMP5XX_REG_INT_SOURCE, BMP5XX_INT_SRC_DRDY);
     }
 
+    // Leave deep standby so the configuration registers accept writes, and stay in
+    // standby while they are written - OSR and IIR settings are only latched there.
+    busWriteRegister(dev, BMP5XX_REG_ODR_CONFIG,
+        BMP5XX_DEEP_STANDBY_DISABLE | BMP5XX_ODR_50_HZ | BMP5XX_MODE_STANDBY);
+
     // Configure DSP: enable pressure and temperature compensation, IIR output
     busWriteRegister(dev, BMP5XX_REG_DSP_CONFIG,
-        BMP5XX_DSP_COMP_PRESS_TEMP | BMP5XX_DSP_SHDW_SEL_IIR);
+        BMP5XX_DSP_COMP_PRESS_TEMP | BMP5XX_DSP_SHDW_SEL_IIR_P | BMP5XX_DSP_SHDW_SEL_IIR_T);
 
-    // Configure IIR filter: register value 4 selects coefficient 15 for both pressure and temperature
-    // This provides good smoothing while maintaining reasonable response time
+    // Light IIR smoothing only: a high coefficient costs roughly coefficient+1 samples
+    // of group delay, so 320ms at coefficient 15 and 50Hz, which hurts altitude hold
+    // more than the noise it removes now that 64X oversampling does the heavy lifting.
     busWriteRegister(dev, BMP5XX_REG_DSP_IIR,
-        BMP5XX_IIR_PRESS(BMP5XX_IIR_COEF_15) | BMP5XX_IIR_TEMP(BMP5XX_IIR_COEF_15));
+        BMP5XX_IIR_PRESS(BMP5XX_IIR_COEF_3) | BMP5XX_IIR_TEMP(BMP5XX_IIR_COEF_3));
 
     // Configure oversampling
     busWriteRegister(dev, BMP5XX_REG_OSR_CONFIG,
@@ -399,7 +406,7 @@ bool bmp5xxDetect(const bmp5xxConfig_t *config, baroDev_t *baro, uint8_t *detect
 
     // Set normal mode with 50Hz ODR for continuous measurement
     // This way data is always ready when we want to read it
-    uint8_t odrConfig = BMP5XX_ODR_50_HZ | BMP5XX_MODE_NORMAL;
+    uint8_t odrConfig = BMP5XX_DEEP_STANDBY_DISABLE | BMP5XX_ODR_50_HZ | BMP5XX_MODE_NORMAL;
     busWriteRegister(dev, BMP5XX_REG_ODR_CONFIG, odrConfig);
 
     // Set up baro device callbacks
@@ -418,13 +425,11 @@ bool bmp5xxDetect(const bmp5xxConfig_t *config, baroDev_t *baro, uint8_t *detect
     // This skips the dummy UT states in the barometer state machine
     baro->combined_read = true;
 
-    // Measurement delay for polling mode
-    // With 128× pressure OSR and 4× temperature OSR, the datasheet specifies
-    // ~98ms single-shot conversion time. However, we use Normal mode (continuous)
-    // at 50Hz ODR, so fresh data is available in shadow registers without waiting
-    // for conversion. The 15ms delay is a safety margin for I2C read timing,
-    // not the actual conversion time.
-    baro->up_delay = 15000;  // 15ms - sufficient for Normal mode shadow register reads
+    // Measurement delay for polling mode. Normal mode converts continuously, so this
+    // only paces the reads: one pass through PRESSURE_START/READ/SAMPLE costs up_delay
+    // plus 2ms of fixed 1ms inter-state waits, so 18ms lines the polling loop up with
+    // the 50Hz (20ms) ODR.
+    baro->up_delay = 18000;
 
     baro->calculate = bmp5xxCalculate;
 
@@ -515,15 +520,26 @@ static bool bmp5xxGetUP(baroDev_t *baro)
 {
     UNUSED(baro);
     
+    // A channel reading 0x7F7F7F has no sample ready yet; keep the previous value
+    // rather than feeding the sentinel into the altitude calculation.
+
     // Parse temperature (24-bit, signed)
-    bmp5xx_ut = (uint32_t)sensor_data[0] |
-                ((uint32_t)sensor_data[1] << 8) |
-                ((uint32_t)sensor_data[2] << 16);
+    if ((sensor_data[0] != BMP5XX_DATA_NOT_READY_BYTE) ||
+        (sensor_data[1] != BMP5XX_DATA_NOT_READY_BYTE) ||
+        (sensor_data[2] != BMP5XX_DATA_NOT_READY_BYTE)) {
+        bmp5xx_ut = (uint32_t)sensor_data[0] |
+                    ((uint32_t)sensor_data[1] << 8) |
+                    ((uint32_t)sensor_data[2] << 16);
+    }
 
     // Parse pressure (24-bit, unsigned)
-    bmp5xx_up = (uint32_t)sensor_data[3] |
-                ((uint32_t)sensor_data[4] << 8) |
-                ((uint32_t)sensor_data[5] << 16);
+    if ((sensor_data[3] != BMP5XX_DATA_NOT_READY_BYTE) ||
+        (sensor_data[4] != BMP5XX_DATA_NOT_READY_BYTE) ||
+        (sensor_data[5] != BMP5XX_DATA_NOT_READY_BYTE)) {
+        bmp5xx_up = (uint32_t)sensor_data[3] |
+                    ((uint32_t)sensor_data[4] << 8) |
+                    ((uint32_t)sensor_data[5] << 16);
+    }
 
     return true;
 }
