@@ -46,6 +46,7 @@
 #include "drivers/barometer/barometer_lps.h"
 #include "drivers/barometer/barometer_2smpb_02b.h"
 #include "drivers/barometer/barometer_lps22df.h"
+#include "drivers/barometer/barometer_lps22bh.h"
 #include "drivers/bus.h"
 #include "drivers/bus_i2c_busdev.h"
 #include "drivers/bus_spi.h"
@@ -83,7 +84,8 @@ void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
     defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_SPI_MS5611) || defined(DEFAULT_BARO_MS5611) || \
     defined(DEFAULT_BARO_BMP085) || defined(DEFAULT_BARO_SPI_LPS) || defined(DEFAULT_BARO_SPI_QMP6988) || \
     defined(DEFAULT_BARO_QMP6988) || defined(DEFAULT_BARO_DPS310) || defined(DEFAULT_BARO_SPI_DPS310) || \
-    defined(DEFAULT_BARO_LPS22DF) || defined(DEFAULT_BARO_SPI_LPS22DF))
+    defined(DEFAULT_BARO_LPS22DF) || defined(DEFAULT_BARO_SPI_LPS22DF) || \
+    defined(DEFAULT_BARO_LPS22BH))
 
 #if defined(USE_BARO_DPS310) || defined(USE_BARO_SPI_DPS310)
 #if defined(USE_BARO_SPI_DPS310)
@@ -132,6 +134,8 @@ void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
 #else
 #define DEFAULT_BARO_LPS22DF
 #endif
+#elif defined(USE_BARO_LPS22BH)
+#define DEFAULT_BARO_LPS22BH
 #endif
 
 #ifndef DEFAULT_BARO_I2C_ADDRESS
@@ -144,7 +148,7 @@ void pgResetFn_barometerConfig(barometerConfig_t *barometerConfig)
     barometerConfig->baro_spi_csn = IO_TAG(BARO_CS_PIN);
     barometerConfig->baro_i2c_device = I2C_DEV_TO_CFG(I2CINVALID);
     barometerConfig->baro_i2c_address = 0;
-#elif defined(DEFAULT_BARO_MS5611) || defined(DEFAULT_BARO_BMP388) || defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_BMP085) || defined(DEFAULT_BARO_QMP6988) || defined(DEFAULT_BARO_DPS310) || defined(DEFAULT_BARO_2SMBP_02B) || defined(USE_BARO_LPS22DF) || defined(DEFAULT_BARO_BMP580) || defined(DEFAULT_BARO_BMP581)
+#elif defined(DEFAULT_BARO_LPS22BH) || defined(DEFAULT_BARO_MS5611) || defined(DEFAULT_BARO_BMP388) || defined(DEFAULT_BARO_BMP280) || defined(DEFAULT_BARO_BMP085) || defined(DEFAULT_BARO_QMP6988) || defined(DEFAULT_BARO_DPS310) || defined(DEFAULT_BARO_2SMBP_02B) || defined(USE_BARO_LPS22DF) || defined(DEFAULT_BARO_BMP580) || defined(DEFAULT_BARO_BMP581)
     // All I2C devices shares a default config with address = 0 (per device default)
     barometerConfig->baro_busType = BUS_TYPE_I2C;
     barometerConfig->baro_i2c_device = I2C_DEV_TO_CFG(BARO_I2C_INSTANCE);
@@ -194,7 +198,7 @@ static bool baroDetect(baroDev_t *baroDev, baroSensor_e baroHardwareToUse)
 
     baroSensor_e baroHardware = baroHardwareToUse;
 
-#if !defined(USE_BARO_BMP085) && !defined(USE_BARO_MS5611) && !defined(USE_BARO_SPI_MS5611) && !defined(USE_BARO_BMP388) && !defined(USE_BARO_SPI_BMP388) && !defined(USE_BARO_BMP280) && !defined(USE_BARO_SPI_BMP280) && !defined(USE_BARO_QMP6988) && !defined(USE_BARO_SPI_QMP6988) && !defined(USE_BARO_DPS310) && !defined(USE_BARO_SPI_DPS310) && !defined(DEFAULT_BARO_SPI_2SMBP_02B) && !defined(DEFAULT_BARO_2SMBP_02B) && !defined(USE_BARO_LPS22DF) && !defined(USE_BARO_BMP580) && !defined(USE_BARO_SPI_BMP580) && !defined(USE_BARO_BMP581) && !defined(USE_BARO_SPI_BMP581)
+#if !defined(USE_BARO_BMP085) && !defined(USE_BARO_MS5611) && !defined(USE_BARO_SPI_MS5611) && !defined(USE_BARO_BMP388) && !defined(USE_BARO_SPI_BMP388) && !defined(USE_BARO_BMP280) && !defined(USE_BARO_SPI_BMP280) && !defined(USE_BARO_QMP6988) && !defined(USE_BARO_SPI_QMP6988) && !defined(USE_BARO_DPS310) && !defined(USE_BARO_SPI_DPS310) && !defined(DEFAULT_BARO_SPI_2SMBP_02B) && !defined(DEFAULT_BARO_2SMBP_02B) && !defined(USE_BARO_LPS22DF) && !defined(USE_BARO_BMP580) && !defined(USE_BARO_SPI_BMP580) && !defined(USE_BARO_BMP581) && !defined(USE_BARO_SPI_BMP581) && !defined(USE_BARO_LPS22BH)
     UNUSED(dev);
 #endif
 
@@ -347,6 +351,15 @@ static bool baroDetect(baroDev_t *baroDev, baroSensor_e baroHardwareToUse)
                 }
                 break;
             }
+        }
+#endif
+        FALLTHROUGH;
+
+    case BARO_LPS22BH:
+#if defined(USE_BARO_LPS22BH)
+        if (lps22bhDetect(baroDev)) {
+            baroHardware = BARO_LPS22BH;
+            break;
         }
 #endif
         FALLTHROUGH;
