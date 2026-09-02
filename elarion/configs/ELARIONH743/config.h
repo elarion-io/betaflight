@@ -167,6 +167,14 @@
 
 #define MAX7456_SPI_INSTANCE SPI1
 
+// The OSD is an STM32G431 running MAX7456 emulation firmware (SW-OSD), not the real
+// chip. Its host SPI slave takes one interrupt per byte at a lower NVIC priority than
+// its own video sync and pixel DMA, so it drops bytes out of long uninterrupted
+// bursts - missing characters on screen, no error reported. Betaflight's DMA path
+// sends up to 250 bytes back to back; the polled path sends 12 with gaps.
+#define MAX7456_DISABLE_DMA
+
+
 #define PINIO1_BOX 40
 #define PINIO2_BOX 41
 
