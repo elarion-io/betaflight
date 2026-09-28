@@ -367,6 +367,10 @@ max7456InitStatus_e max7456Init(const max7456Config_t *max7456Config, const vcdP
     // Set the clock phase/polarity
     spiSetClkPhasePolarity(dev, true);
 
+#ifdef MAX7456_DISABLE_DMA
+    spiDmaEnable(dev, false);
+#endif
+
     // Detect MAX7456 existence and device type. Do this at half the speed for safety.
 
     // Detect MAX7456 and compatible device by reading OSDM (OSD Insertion MUX) register.

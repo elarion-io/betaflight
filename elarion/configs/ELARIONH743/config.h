@@ -167,6 +167,8 @@
 
 #define MAX7456_SPI_INSTANCE SPI1
 
+#define MAX7456_DISABLE_DMA
+
 #define PINIO1_BOX 40
 #define PINIO2_BOX 41
 
