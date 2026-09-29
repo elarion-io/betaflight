@@ -72,6 +72,16 @@ void memProtConfigure(mpuRegion_t *regions, unsigned regionCount)
                 msbpos += 1;
             }
 
+            uint32_t regionBytes = 1U << (msbpos + 1);
+            uint32_t alignedStart = start & ~(regionBytes - 1);
+
+            while (alignedStart + regionBytes < region->end) {
+                msbpos += 1;
+                regionBytes <<= 1;
+                alignedStart = start & ~(regionBytes - 1);
+            }
+
+            MPU_InitStruct.BaseAddress = alignedStart;
             MPU_InitStruct.Size = msbpos;
         }
 

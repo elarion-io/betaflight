@@ -41,9 +41,12 @@
 #include "drivers/osd_symbols.h"
 #include "drivers/time.h"
 
-// 10 MHz max SPI frequency
+#ifndef MAX7456_MAX_SPI_CLK_HZ
 #define MAX7456_MAX_SPI_CLK_HZ 10000000
+#endif
+#ifndef MAX7456_INIT_MAX_SPI_CLK_HZ
 #define MAX7456_INIT_MAX_SPI_CLK_HZ 5000000
+#endif
 
 // DEBUG_MAX7456_SIGNAL
 #define DEBUG_MAX7456_SIGNAL_MODEREG       0
