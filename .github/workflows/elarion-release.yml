@@ -43,6 +43,9 @@ jobs:
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         run: make arm_sdk_install
 
+      - name: Hydrate submodules
+        run: git submodule update --init
+
       - name: Build firmware
         run: |
           set -euo pipefail
