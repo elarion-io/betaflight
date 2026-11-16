@@ -113,8 +113,8 @@
 // #define SDCARD_DETECT_PIN    NONE
 
 
-#define PINIO2_PIN           PD10
-#define PINIO1_PIN           PD11
+#define PINIO2_PIN           PC12
+#define PINIO1_PIN           PC13
 
 #define MAX7456_SPI_CS_PIN   PC14
 
